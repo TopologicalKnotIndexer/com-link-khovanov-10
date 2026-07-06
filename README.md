@@ -24,7 +24,7 @@ cd com-link-khovanov-10
 Then install the direct Python dependencies required by `main.py`:
 
 ```bash
-python -m pip install com-link-gen-10 link-rep-to-pd-code link-khovanov tqdm
+python -m pip install com-link-gen-10 link-rep-to-pd-code pd-code-to-diagram link-khovanov tqdm
 ```
 
 These package names use hyphens on PyPI, but they are imported with underscores
@@ -33,6 +33,7 @@ in Python:
 ```text
 com-link-gen-10        -> import com_link_gen_10
 link-rep-to-pd-code   -> import link_rep_to_pd_code
+pd-code-to-diagram    -> import pd_code_to_diagram
 link-khovanov         -> import link_khovanov
 tqdm                  -> from tqdm import tqdm
 ```
@@ -40,7 +41,7 @@ tqdm                  -> from tqdm import tqdm
 You can verify the dependency installation with:
 
 ```bash
-python -c "import com_link_gen_10, link_rep_to_pd_code, link_khovanov, tqdm"
+python -c "import com_link_gen_10, link_rep_to_pd_code, pd_code_to_diagram, link_khovanov, tqdm"
 ```
 
 This repository itself is not published as a PyPI package; the command above
@@ -69,16 +70,18 @@ Because the repository package directory contains hyphens, import the module wit
 ```python
 import importlib
 
-clk = importlib.import_module("com-link-khovanov-10.main")
+if __name__ == "__main__":
+    clk = importlib.import_module("com-link-khovanov-10.main")
 
-# Generate 10-crossing composite link files and their PD codes.
-clk.generate_all(total_crs=10, max_prime_cnt=3)
+    # Generate 10-crossing composite link files and their PD codes.
+    clk.generate_all(total_crs=10, max_prime_cnt=3, process_count=16)
 
-# Compute Khovanov homology with four worker processes.
-clk.process_khovanov_default(process_count=4)
+    # Compute Khovanov homology with four worker processes.
+    clk.process_khovanov_default(process_count=16)
 ```
 
-`generate_all(total_crs, max_prime_cnt)` creates a directory named like:
+`generate_all(total_crs, max_prime_cnt, process_count)` creates a directory named
+like:
 
 ```text
 com_link_gen_10-v<version>-com_link_gen-<total_crs>-<max_prime_cnt>
@@ -115,6 +118,13 @@ resumed safely.
 
 ## Parallel Processing
 
+Use `generate_all(total_crs, max_prime_cnt, process_count)` to generate files
+and normalize PD codes with a fixed number of worker processes:
+
+```python
+data_dir = clk.generate_all(total_crs=10, max_prime_cnt=3, process_count=8)
+```
+
 Use `process_khovanov_default(process_count)` to process the default generated
 10-crossing data set with a fixed number of worker processes:
 
@@ -131,7 +141,7 @@ For a custom generated data directory, use
 `process_khovanov_parallel(dir_to_process, process_count)`:
 
 ```python
-data_dir = clk.generate_all(total_crs=9, max_prime_cnt=2)
+data_dir = clk.generate_all(total_crs=9, max_prime_cnt=2, process_count=8)
 clk.process_khovanov_parallel(data_dir, process_count=8)
 ```
 
@@ -144,8 +154,8 @@ import importlib
 
 if __name__ == "__main__":
     clk = importlib.import_module("com-link-khovanov-10.main")
-    clk.generate_all(total_crs=10, max_prime_cnt=3)
-    clk.process_khovanov_default(process_count=8)
+    clk.generate_all(total_crs=10, max_prime_cnt=3, process_count=28)
+    clk.process_khovanov_default(process_count=28)
 ```
 
 The older `process_khovanov(dir_to_process, mod, res)` modulo-splitting API is
@@ -183,12 +193,13 @@ Python API shown above.
 
 ## API Reference
 
-### `generate_all(total_crs: int, max_prime_cnt: int)`
+### `generate_all(total_crs: int, max_prime_cnt: int, process_count: int = 1)`
 
 Generate all composite links for the requested crossing number and maximum
 number of prime link factors. The function writes one text file per generated
 link, stores the corresponding PD code in the file header, and returns the
-generated data directory.
+generated data directory. `process_count` controls how many worker processes are
+used for PD-code conversion, normalization, and file writing.
 
 ### `process_one_file(filepath: str)`
 
@@ -221,6 +232,7 @@ Direct dependencies:
 
 - `com-link-gen-10` / `com_link_gen_10`
 - `link-rep-to-pd-code` / `link_rep_to_pd_code`
+- `pd-code-to-diagram` / `pd_code_to_diagram`
 - `link-khovanov` / `link_khovanov`
 - `tqdm`
 

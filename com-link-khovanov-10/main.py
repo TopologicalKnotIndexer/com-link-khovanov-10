@@ -3,6 +3,7 @@ import os
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from importlib.metadata import PackageNotFoundError, version
 from multiprocessing import freeze_support
+import traceback
 
 import com_link_gen_10
 import link_khovanov
@@ -35,28 +36,51 @@ def get_data_dir(total_crs: int = 10, max_prime_cnt: int = 3):
     )
 
 
-def generate_all(total_crs: int, max_prime_cnt: int):
+def _generate_one_file(args):
+    idx, item, data_dir_now = args
+    filepath = os.path.join(data_dir_now, f"{idx + 1:07d}.txt")
+
+    pd_code_pre = None
+    try:
+        pd_code_now = link_rep_to_pd_code.link_rep_to_pd_code(item)
+        pd_code_pre = pd_code_now
+        pd_code_now = pd_code_to_diagram.pd_code_diagram_sanity(pd_code_now)[1]
+    except Exception as e:
+        print(f"Exception when calculate: \n{item}")
+        print(f"pd_code_pre: {pd_code_pre}")
+        traceback.print_exc()
+        raise e
+
+    with open(filepath, "w") as fp:
+        fp.write("// PD_CODE: " + str(pd_code_now) + "\n" + item)
+
+    return filepath
+
+
+def generate_all(total_crs: int, max_prime_cnt: int, process_count: int = 1):
+    process_count = int(process_count)
+    if process_count <= 0:
+        raise ValueError("process_count must be a positive integer")
+
     data_dir_now = get_data_dir(total_crs, max_prime_cnt)
     os.makedirs(data_dir_now, exist_ok=True)
 
     data_list = com_link_gen_10.com_link_gen(total_crs, max_prime_cnt)
 
-    for idx in tqdm(range(len(data_list))):
-        filepath = os.path.join(data_dir_now, f"{idx + 1:07d}.txt")
-        item = data_list[idx]
+    tasks = [(idx, item, data_dir_now) for idx, item in enumerate(data_list)]
+    if len(tasks) == 0:
+        return data_dir_now
 
-        pd_code_pre = None
-        try:
-            pd_code_now = link_rep_to_pd_code.link_rep_to_pd_code(item)
-            pd_code_pre = pd_code_now
-            pd_code_now = pd_code_to_diagram.pd_code_sanity(pd_code_now)[1] # get normalized pd_code
-        except Exception as e:
-            print(f"Exception when calculate: \n{item}")
-            print(f"pd_code_pre: {pd_code_pre}")
-            raise e
+    if process_count == 1:
+        for task in tqdm(tasks):
+            _generate_one_file(task)
+        return data_dir_now
 
-        with open(filepath, "w") as fp:
-            fp.write("// PD_CODE: " + str(pd_code_now) + "\n" + item)
+    worker_count = min(process_count, len(tasks))
+    with ProcessPoolExecutor(max_workers=worker_count) as executor:
+        futures = [executor.submit(_generate_one_file, task) for task in tasks]
+        for future in tqdm(as_completed(futures), total=len(futures)):
+            future.result()
 
     return data_dir_now
 
