@@ -6,6 +6,7 @@ from multiprocessing import freeze_support
 
 import com_link_gen_10
 import link_khovanov
+import pd_code_to_diagram
 import link_rep_to_pd_code
 from tqdm import tqdm
 
@@ -46,6 +47,7 @@ def generate_all(total_crs: int, max_prime_cnt: int):
 
         try:
             pd_code_now = link_rep_to_pd_code.link_rep_to_pd_code(item)
+            pd_code_now = pd_code_to_diagram.pd_code_sanity(pd_code_now)[1] # get normalized pd_code
         except Exception as e:
             print(f"Exception when calculate: \n{item}")
             raise e
