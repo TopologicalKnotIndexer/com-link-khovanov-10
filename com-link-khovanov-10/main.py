@@ -45,11 +45,14 @@ def generate_all(total_crs: int, max_prime_cnt: int):
         filepath = os.path.join(data_dir_now, f"{idx + 1:07d}.txt")
         item = data_list[idx]
 
+        pd_code_pre = None
         try:
             pd_code_now = link_rep_to_pd_code.link_rep_to_pd_code(item)
+            pd_code_pre = pd_code_now
             pd_code_now = pd_code_to_diagram.pd_code_sanity(pd_code_now)[1] # get normalized pd_code
         except Exception as e:
             print(f"Exception when calculate: \n{item}")
+            print(f"pd_code_pre: {pd_code_pre}")
             raise e
 
         with open(filepath, "w") as fp:
