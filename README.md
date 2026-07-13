@@ -22,7 +22,7 @@ print(folder)
 
 ## Algorithm
 
-Generation enumerates multisets of prime factors whose total crossing count is at most the requested bound. It enumerates spanning connection schemes between factor components, evaluates each textual link representation with oriented connected sums, and writes canonically numbered PD codes. Khovanov processing enumerates component orientations, removes duplicate homology strings, and prepends the results to each numbered file. Work is distributed with `ProcessPoolExecutor` while filenames remain deterministic.
+Generation enumerates multisets of prime factors whose total crossing count is at most the requested bound. It enumerates spanning connection schemes between factor components, evaluates each textual link representation with oriented connected sums, and writes canonically numbered PD codes. Re-running a generation removes stale numeric files outside the current result set. Khovanov processing parses PD literals with `ast.literal_eval`, enumerates component orientations, removes duplicate homology strings, and atomically prepends the results to each numbered file. Work is distributed with `ProcessPoolExecutor` while filenames remain deterministic.
 
 ## Input conventions
 
@@ -36,12 +36,13 @@ A PD code is represented as a list of four-entry crossings. Arc labels normally 
 
 ## Development
 
-Run examples and package checks before release. Python packages require Python 3.10 or newer. Build PyPI artifacts with:
+Python 3.10 or newer is required. Run tests after making the sibling TopLink application dependencies importable:
 
 ```bash
-poetry check
-poetry build
+python -m unittest discover -s tests -v
 ```
+
+This application has no PyPI publication step.
 
 ## License
 

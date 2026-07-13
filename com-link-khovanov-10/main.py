@@ -1,5 +1,6 @@
 import inspect
 import os
+from ast import literal_eval
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from importlib.metadata import PackageNotFoundError, version
 from multiprocessing import freeze_support
@@ -8,11 +9,33 @@ import traceback
 import com_link_gen_10
 import link_khovanov
 import link_rep_to_pd_code
-from tqdm import tqdm
+try:
+    from tqdm import tqdm
+except ImportError:
+    def tqdm(iterable, **kwargs):
+        del kwargs
+        return iterable
 
 
 DIRNOW = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(DIRNOW, "data")
+
+
+def _worker_count(value: int) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise ValueError("process_count must be a positive integer")
+    return value
+
+
+def _atomic_write(filepath: str, content: str) -> None:
+    temporary = filepath + f".tmp-{os.getpid()}"
+    try:
+        with open(temporary, "w", encoding="utf-8", newline="\n") as stream:
+            stream.write(content)
+        os.replace(temporary, filepath)
+    finally:
+        if os.path.exists(temporary):
+            os.remove(temporary)
 
 
 def _com_link_gen_version():
@@ -47,18 +70,15 @@ def _generate_one_file(args):
         print(f"Exception when calculate: \n{item}")
         print(f"pd_code_pre: {pd_code_pre}")
         traceback.print_exc()
-        raise e
+        raise
 
-    with open(filepath, "w") as fp:
-        fp.write("// PD_CODE: " + str(pd_code_now) + "\n" + item)
+    _atomic_write(filepath, "// PD_CODE: " + str(pd_code_now) + "\n" + item)
 
     return filepath
 
 
 def generate_all(total_crs: int, max_prime_cnt: int, process_count: int = 1):
-    process_count = int(process_count)
-    if process_count <= 0:
-        raise ValueError("process_count must be a positive integer")
+    process_count = _worker_count(process_count)
 
     data_dir_now = get_data_dir(total_crs, max_prime_cnt)
     os.makedirs(data_dir_now, exist_ok=True)
@@ -66,6 +86,10 @@ def generate_all(total_crs: int, max_prime_cnt: int, process_count: int = 1):
     data_list = com_link_gen_10.com_link_gen(total_crs, max_prime_cnt)
 
     tasks = [(idx, item, data_dir_now) for idx, item in enumerate(data_list)]
+    expected_names = {f"{idx + 1:07d}.txt" for idx in range(len(data_list))}
+    for _, stale_path in _indexed_generated_files(data_dir_now):
+        if os.path.basename(stale_path) not in expected_names:
+            os.remove(stale_path)
     if len(tasks) == 0:
         return data_dir_now
 
@@ -107,16 +131,16 @@ def process_one_file(filepath: str):
     if not os.path.isfile(filepath):
         raise AssertionError()
 
-    with open(filepath, "r") as fp:
+    with open(filepath, "r", encoding="utf-8") as fp:
         old_content = fp.read()
 
-    if old_content.find("KHOVANOV:") != -1:
+    if any(line.startswith("// KHOVANOV:") for line in old_content.splitlines()):
         return
 
     pd_code = None
     for line in old_content.split("\n"):
-        if line.find("PD_CODE:") != -1:
-            pd_code = eval(line.split("PD_CODE:")[-1].strip())
+        if line.startswith("// PD_CODE:"):
+            pd_code = literal_eval(line.split("PD_CODE:", 1)[1].strip())
             break
 
     if pd_code is None:
@@ -128,8 +152,7 @@ def process_one_file(filepath: str):
         for one_khovanov in khovanov_list
     ])
 
-    with open(filepath, "w") as fp:
-        fp.write(new_content_prefix + old_content)
+    _atomic_write(filepath, new_content_prefix + old_content)
 
 
 def process_khovanov(dir_to_process: str, mod: int, res: int):
@@ -148,9 +171,7 @@ def process_khovanov(dir_to_process: str, mod: int, res: int):
 
 
 def process_khovanov_parallel(dir_to_process: str, process_count: int):
-    process_count = int(process_count)
-    if process_count <= 0:
-        raise ValueError("process_count must be a positive integer")
+    process_count = _worker_count(process_count)
 
     filelist = [filepath for _, filepath in _indexed_generated_files(dir_to_process)]
     if len(filelist) == 0:
