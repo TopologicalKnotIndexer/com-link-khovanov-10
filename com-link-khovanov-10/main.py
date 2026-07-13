@@ -7,7 +7,6 @@ import traceback
 
 import com_link_gen_10
 import link_khovanov
-import pd_code_to_diagram
 import link_rep_to_pd_code
 from tqdm import tqdm
 
@@ -44,7 +43,6 @@ def _generate_one_file(args):
     try:
         pd_code_now = link_rep_to_pd_code.link_rep_to_pd_code(item)
         pd_code_pre = pd_code_now
-        pd_code_now = pd_code_to_diagram.pd_code_diagram_sanity(pd_code_now)[1]
     except Exception as e:
         print(f"Exception when calculate: \n{item}")
         print(f"pd_code_pre: {pd_code_pre}")
