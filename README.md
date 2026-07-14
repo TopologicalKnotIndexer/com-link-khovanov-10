@@ -47,3 +47,16 @@ This application has no PyPI publication step.
 ## License
 
 MIT. See `LICENSE`.
+
+## Citation
+
+If you use this repository in academic work, please cite it as:
+
+```bibtex
+@software{topologicalknotindexer_com_link_khovanov_10,
+  author = {{TopologicalKnotIndexer contributors}},
+  title = {{com-link-khovanov-10}},
+  year = {2026},
+  url = {https://github.com/TopologicalKnotIndexer/com-link-khovanov-10}
+}
+```
